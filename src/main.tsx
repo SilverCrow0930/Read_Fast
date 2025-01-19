@@ -8,20 +8,15 @@ import App from './App.tsx'
 import './index.css'
 
 // Initialize session context
-const initializeApp = async () => {
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <SessionContextProvider supabaseClient={supabase} initialSession={session}>
-        <BrowserRouter>
-          <App />
-          <Toaster position="bottom-right" />
-        </BrowserRouter>
-      </SessionContextProvider>
-    </React.StrictMode>
-  )
-}
+const initialSession = await supabase.auth.getSession()
 
-// Start the app
-initializeApp() 
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <SessionContextProvider supabaseClient={supabase} initialSession={initialSession.data.session}>
+      <BrowserRouter>
+        <App />
+        <Toaster position="bottom-right" />
+      </BrowserRouter>
+    </SessionContextProvider>
+  </React.StrictMode>
+) 

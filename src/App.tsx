@@ -113,7 +113,7 @@ function App() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'http://localhost:3000/convert-text',
+          redirectTo: `${import.meta.env.VITE_APP_URL}/convert-text`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
