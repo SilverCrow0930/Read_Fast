@@ -1,6 +1,6 @@
-# Fast Read
+# Read Fast
 
-Fast Read is a modern web application that helps users read faster and more efficiently by converting text into a bionic reading format. The app highlights key parts of words to guide the reader's eyes, making reading quicker and more focused.
+Read Fast is a modern web application that helps users read faster and more efficiently by converting text into a bionic reading format. The app highlights key parts of words to guide the reader's eyes, making reading quicker and more focused.
 
 ## Features
 
