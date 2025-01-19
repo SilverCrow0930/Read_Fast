@@ -104,7 +104,7 @@ const Navbar = () => {
             if (insertError) throw insertError;
 
             // Call the database function to handle referral
-            const { data, error: handleError } = await supabase
+            const { error: handleError } = await supabase
               .rpc('handle_referral', {
                 p_referrer_id: referralCode,
                 p_new_user_id: session.user.id

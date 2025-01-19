@@ -8,14 +8,6 @@ import { Session } from '@supabase/supabase-js'
 // Types
 type SubscriptionTier = 'free' | 'pro' | 'ultimate'
 
-interface SubscriptionPlan {
-  tier: SubscriptionTier
-}
-
-interface UserSubscription {
-  subscription_plans: SubscriptionPlan
-}
-
 // Database response type
 interface DbUserSubscription {
   subscription_plans: {
@@ -140,7 +132,6 @@ const ConvertFiles = () => {
       }, 3000)
 
       // Animate progress with natural acceleration and deceleration
-      let progress = 0
       const progressInterval = setInterval(() => {
         setConversionProgress(prev => {
           if (prev < 15) return prev + 0.8 // Fast initial progress

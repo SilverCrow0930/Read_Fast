@@ -2,6 +2,23 @@ import { useState, useEffect } from 'react'
 import { useSession } from '@supabase/auth-helpers-react'
 import { supabase } from '../lib/supabase'
 
+interface BaseComment {
+  id: string;
+  content: string;
+  created_at?: string;
+  likes: number;
+  user_id?: string;
+  user: {
+    email: string;
+    name?: string;
+    avatar?: string;
+  };
+}
+
+interface Comment extends BaseComment {
+  replies: BaseComment[];
+}
+
 interface SupabaseUser {
   email: string;
   raw_user_meta_data: {
@@ -17,42 +34,11 @@ interface SupabaseComment {
   created_at: string;
   likes: number;
   user_id: string;
-  user: SupabaseUser;
+  user: SupabaseUser[];
   replies?: SupabaseComment[];
 }
 
-interface Comment {
-  id: string
-  user_id?: string
-  content: string
-  created_at?: string
-  likes: number
-  user: {
-    email: string
-    name?: string
-    avatar?: string
-  }
-  replies: Comment[]
-}
-
-interface SupabaseResponse {
-  id: string;
-  content: string;
-  created_at: string;
-  likes: number;
-  user_id: string;
-  user: {
-    email: string;
-    raw_user_meta_data: {
-      full_name?: string;
-      avatar_url?: string;
-      picture?: string;
-    };
-  };
-  replies?: SupabaseResponse[];
-}
-
-const INITIAL_COMMENTS = [
+const INITIAL_COMMENTS: Comment[] = [
   {
     id: '1',
     content: "Just discovered the batch processing feature - absolute game changer! Converted my entire research library in minutes. Anyone else using this for academic papers? 🚀",
@@ -84,18 +70,7 @@ const INITIAL_COMMENTS = [
       avatar: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=150"
     },
     likes: 89,
-    replies: [
-      {
-        id: '2-1',
-        content: "Yes! Go to Settings > Reading Preferences. You can adjust everything there",
-        user: { 
-          email: "helpful_mod",
-          name: "Michael Rodriguez",
-          avatar: "https://images.unsplash.com/photo-1518562180175-34a163b1a9a6?w=150"
-        },
-        likes: 67
-      }
-    ]
+    replies: []
   },
   {
     id: '3',
@@ -126,18 +101,7 @@ const INITIAL_COMMENTS = [
       avatar: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=150"
     },
     likes: 79,
-    replies: [
-      {
-        id: '5-1',
-        content: "This is genius! Just tried it with my exam prep materials",
-        user: { 
-          email: "student_life",
-          name: "Tom Wilson",
-          avatar: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=150"
-        },
-        likes: 34
-      }
-    ]
+    replies: []
   },
   {
     id: '6',
@@ -168,18 +132,7 @@ const INITIAL_COMMENTS = [
       avatar: "https://images.unsplash.com/photo-1502657877623-f66bf489d236?w=150"
     },
     likes: 68,
-    replies: [
-      {
-        id: '8-1',
-        content: "It's actually coming in the next update! Saw it in the beta",
-        user: { 
-          email: "beta_tester",
-          name: "Marcus Johnson",
-          avatar: "https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=150"
-        },
-        likes: 41
-      }
-    ]
+    replies: []
   },
   {
     id: '9',
@@ -250,18 +203,7 @@ const INITIAL_COMMENTS = [
       avatar: "https://images.unsplash.com/photo-1567359781514-3b964e2b04d6?w=150"
     },
     likes: 49,
-    replies: [
-      {
-        id: '15-1',
-        content: "Ultimate is worth it if you're processing 100+ docs monthly. The priority processing alone saves hours",
-        user: { 
-          email: "power_user",
-          name: "Sophia Chen",
-          avatar: "https://images.unsplash.com/photo-1549880338-65ddcdfd017b?w=150"
-        },
-        likes: 38
-      }
-    ]
+    replies: []
   },
   {
     id: '16',
@@ -403,7 +345,7 @@ const INITIAL_COMMENTS = [
     },
     likes: 21
   }
-];
+] as Comment[];
 
 const Community = () => {
   const session = useSession()
@@ -412,7 +354,6 @@ const Community = () => {
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState('')
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
@@ -447,32 +388,32 @@ const Community = () => {
         .order('created_at', { ascending: false })
 
       if (!error && data && mounted) {
-        const formattedComments = (data as SupabaseResponse[]).map(comment => ({
+        const formattedComments: Comment[] = data.map(comment => ({
           id: comment.id,
           content: comment.content,
           created_at: comment.created_at,
           likes: comment.likes,
+          user_id: comment.user_id,
           user: {
-            email: comment.user.email,
-            name: comment.user.raw_user_meta_data?.full_name || comment.user.email,
-            avatar: comment.user.raw_user_meta_data?.avatar_url || comment.user.raw_user_meta_data?.picture
+            email: comment.user[0].email,
+            name: comment.user[0].raw_user_meta_data?.full_name || comment.user[0].email,
+            avatar: comment.user[0].raw_user_meta_data?.avatar_url || comment.user[0].raw_user_meta_data?.picture
           },
           replies: (comment.replies || []).map(reply => ({
             id: reply.id,
             content: reply.content,
             created_at: reply.created_at,
             likes: reply.likes,
+            user_id: reply.user_id,
             user: {
-              email: reply.user.email,
-              name: reply.user.raw_user_meta_data?.full_name || reply.user.email,
-              avatar: reply.user.raw_user_meta_data?.avatar_url || reply.user.raw_user_meta_data?.picture
-            },
-            replies: []
+              email: reply.user[0].email,
+              name: reply.user[0].raw_user_meta_data?.full_name || reply.user[0].email,
+              avatar: reply.user[0].raw_user_meta_data?.avatar_url || reply.user[0].raw_user_meta_data?.picture
+            }
           }))
-        })) as Comment[]
-        setComments(formattedComments)
+        }));
+        setComments(formattedComments);
       }
-      setIsLoading(false)
     }
 
     loadComments()
@@ -507,20 +448,21 @@ const Community = () => {
               .single()
               .then(({ data }) => {
                 if (data) {
-                  const response = data as SupabaseResponse;
+                  const response = data as unknown as SupabaseComment;
                   const formattedComment: Comment = {
                     id: response.id,
                     content: response.content,
                     created_at: response.created_at,
                     likes: response.likes,
+                    user_id: response.user_id,
                     user: {
-                      email: response.user.email,
-                      name: response.user.raw_user_meta_data?.full_name || response.user.email,
-                      avatar: response.user.raw_user_meta_data?.avatar_url || response.user.raw_user_meta_data?.picture
+                      email: response.user[0].email,
+                      name: response.user[0].raw_user_meta_data?.full_name || response.user[0].email,
+                      avatar: response.user[0].raw_user_meta_data?.avatar_url || response.user[0].raw_user_meta_data?.picture
                     },
                     replies: []
-                  }
-                  setComments(prev => [formattedComment, ...prev])
+                  };
+                  setComments(prev => [formattedComment, ...prev]);
                 }
               })
           }
