@@ -13,10 +13,6 @@ import Community from './components/Community'
 // Types
 type SubscriptionTier = 'free' | 'pro' | 'ultimate'
 
-interface SubscriptionPlan {
-  tier: SubscriptionTier
-}
-
 // Database response type
 interface DbUserSubscription {
   subscription_plans: {
