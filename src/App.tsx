@@ -17,10 +17,6 @@ interface SubscriptionPlan {
   tier: SubscriptionTier
 }
 
-interface UserSubscription {
-  subscription_plans: SubscriptionPlan
-}
-
 // Database response type
 interface DbUserSubscription {
   subscription_plans: {
