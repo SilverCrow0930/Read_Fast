@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import toast from 'react-hot-toast'
@@ -45,21 +45,37 @@ const Navbar = () => {
 
   const handleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const redirectUrl = `${window.location.origin}/convert-text${referralCode ? `?ref=${referralCode}` : ''}`;
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/convert-text`,
-          queryParams: referralCode ? {
-            ref: referralCode // Pass referral code to auth callback
-          } : undefined
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         },
       })
       
-      if (error) throw error
-      toast.success('Signing in with Google...')
-    } catch (error) {
-      console.error('Sign in error:', error)
-      toast.error('Error signing in with Google')
+      if (error) {
+        console.error('Detailed sign in error:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
+        throw error;
+      }
+
+      if (!data) {
+        toast.error('Unable to initialize Google sign in');
+        return;
+      }
+
+      toast.success('Redirecting to Google sign in...');
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      toast.error(error?.message || 'Error signing in with Google. Please try again.');
     }
   }
 
@@ -87,12 +103,14 @@ const Navbar = () => {
 
             if (insertError) throw insertError;
 
-            // Update referral count
-            const { error: updateError } = await supabase.rpc('increment_referral_count', {
-              p_referrer_id: referralCode
-            });
+            // Call the database function to handle referral
+            const { data, error: handleError } = await supabase
+              .rpc('handle_referral', {
+                p_referrer_id: referralCode,
+                p_new_user_id: session.user.id
+              });
 
-            if (updateError) throw updateError;
+            if (handleError) throw handleError;
 
             toast.success('Referral bonus applied!');
           }
@@ -150,7 +168,6 @@ const Navbar = () => {
                   onClick={() => setShowInviteModal(true)}
                   className="flex items-center gap-2 px-5 py-2 bg-[#4475F2] text-white font-medium rounded-full hover:bg-[#2954c8] transition-colors"
                 >
-                  <img src="/icons/target.png" alt="Target" className="w-5 h-5" />
                   Get 2 Months Pro Free!
                 </button>
                 <button
