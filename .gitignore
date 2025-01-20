@@ -12,11 +12,16 @@
 
 # Misc
 .DS_Store
+
+# Environment Files
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+/backend/.env
 
 # Logs
 npm-debug.log*

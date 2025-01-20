@@ -16,9 +16,13 @@ interface DbUserSubscription {
 }
 
 // Constants
-const MAX_FREE_SIZE = 10 * 1024 * 1024 // 10MB for free users
-const MAX_PRO_SIZE = 50 * 1024 * 1024 // 50MB for pro users
-const MAX_ULTIMATE_SIZE = 100 * 1024 * 1024 // 100MB for ultimate users
+const MAX_FREE_SIZE = 10 * 1024 * 1024  // 10MB for free users
+const MAX_PRO_SIZE = 50 * 1024 * 1024   // 50MB for pro users
+const MAX_ULTIMATE_SIZE = 100 * 1024 * 1024  // 100MB for ultimate users
+
+const MAX_FREE_FILES = 1     // Free users: 1 file at a time
+const MAX_PRO_FILES = 5      // Pro users: 5 files at a time
+const MAX_ULTIMATE_FILES = 10 // Ultimate users: 10 files at a time
 
 const ACCEPTED_TYPES = {
   'application/pdf': ['.pdf']
@@ -41,32 +45,54 @@ const ConvertFiles = () => {
       setSession(session)
       
       if (session?.user) {
-        // Check user's subscription from user_subscriptions table
-        const { data: userSub, error: subError } = await supabase
-          .from('user_subscriptions')
-          .select(`
-            subscription_plans!inner (
-              tier
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .single() as { data: DbUserSubscription | null, error: any }
-        
-        if (subError) {
-          console.error('Error fetching subscription:', subError)
-          // If error or no subscription found, default to free tier
-          setIsUltimate(false)
-          setIsPro(false)
-          return
-        }
+        try {
+          // First, try to get an active subscription
+          const { data: userSub, error: subError } = await supabase
+            .from('user_subscriptions')
+            .select(`
+              subscription_plans (
+                tier
+              )
+            `)
+            .eq('user_id', session.user.id)
+            .eq('status', 'active')
+            .single() as { data: DbUserSubscription | null, error: any }
 
-        // Set subscription status based on the plan tier
-        if (userSub?.subscription_plans?.tier) {
-          setIsUltimate(userSub.subscription_plans.tier === 'ultimate')
-          setIsPro(userSub.subscription_plans.tier === 'pro')
-        } else {
-          // Default to free tier if no subscription found
+          if (subError || !userSub) {
+            // If no active subscription found, create a free one
+            const { data: freePlan } = await supabase
+              .from('subscription_plans')
+              .select('id')
+              .eq('tier', 'free')
+              .single()
+
+            if (freePlan?.id) {
+              await supabase.from('user_subscriptions').insert({
+                user_id: session.user.id,
+                subscription_plan_id: freePlan.id,
+                status: 'active'
+              })
+            }
+            
+            // Set to free tier
+            setIsUltimate(false)
+            setIsPro(false)
+            return
+          }
+
+          // Set subscription status based on the plan tier
+          const tier = userSub?.subscription_plans?.tier
+          if (tier) {
+            setIsUltimate(tier === 'ultimate')
+            setIsPro(tier === 'pro')
+          } else {
+            // Default to free tier if no subscription found
+            setIsUltimate(false)
+            setIsPro(false)
+          }
+        } catch (error) {
+          console.error('Error handling subscription:', error)
+          // Default to free tier on error
           setIsUltimate(false)
           setIsPro(false)
         }
@@ -78,32 +104,54 @@ const ConvertFiles = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session?.user) {
-        // Check user's subscription from user_subscriptions table
-        const { data: userSub, error: subError } = await supabase
-          .from('user_subscriptions')
-          .select(`
-            subscription_plans!inner (
-              tier
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .single() as { data: DbUserSubscription | null, error: any }
+        try {
+          // First, try to get an active subscription
+          const { data: userSub, error: subError } = await supabase
+            .from('user_subscriptions')
+            .select(`
+              subscription_plans (
+                tier
+              )
+            `)
+            .eq('user_id', session.user.id)
+            .eq('status', 'active')
+            .single() as { data: DbUserSubscription | null, error: any }
 
-        if (subError) {
-          console.error('Error fetching subscription:', subError)
-          // If error or no subscription found, default to free tier
-          setIsUltimate(false)
-          setIsPro(false)
-          return
-        }
+          if (subError || !userSub) {
+            // If no active subscription found, create a free one
+            const { data: freePlan } = await supabase
+              .from('subscription_plans')
+              .select('id')
+              .eq('tier', 'free')
+              .single()
 
-        // Set subscription status based on the plan tier
-        if (userSub?.subscription_plans?.tier) {
-          setIsUltimate(userSub.subscription_plans.tier === 'ultimate')
-          setIsPro(userSub.subscription_plans.tier === 'pro')
-        } else {
-          // Default to free tier if no subscription found
+            if (freePlan?.id) {
+              await supabase.from('user_subscriptions').insert({
+                user_id: session.user.id,
+                subscription_plan_id: freePlan.id,
+                status: 'active'
+              })
+            }
+            
+            // Set to free tier
+            setIsUltimate(false)
+            setIsPro(false)
+            return
+          }
+
+          // Set subscription status based on the plan tier
+          const tier = userSub?.subscription_plans?.tier
+          if (tier) {
+            setIsUltimate(tier === 'ultimate')
+            setIsPro(tier === 'pro')
+          } else {
+            // Default to free tier if no subscription found
+            setIsUltimate(false)
+            setIsPro(false)
+          }
+        } catch (error) {
+          console.error('Error handling subscription:', error)
+          // Default to free tier on error
           setIsUltimate(false)
           setIsPro(false)
         }
@@ -152,95 +200,29 @@ const ConvertFiles = () => {
     }
   }, [isConverting])
 
-  const getMaxSize = () => {
-    if (!session) return MAX_FREE_SIZE
-    if (isUltimate) return MAX_ULTIMATE_SIZE
-    if (isPro) return MAX_PRO_SIZE
-    return MAX_FREE_SIZE
-  }
-
-  const getTierLimits = () => {
-    if (!session) return { maxFiles: 1, maxSize: MAX_FREE_SIZE }
-    if (isUltimate) return { maxFiles: Infinity, maxSize: MAX_ULTIMATE_SIZE }
-    if (isPro) return { maxFiles: Infinity, maxSize: MAX_PRO_SIZE }
-    return { maxFiles: 1, maxSize: MAX_FREE_SIZE }
-  }
+  // Calculate limits based on subscription
+  const maxSize = isUltimate ? MAX_ULTIMATE_SIZE : isPro ? MAX_PRO_SIZE : MAX_FREE_SIZE
+  const maxFiles = isUltimate ? MAX_ULTIMATE_FILES : isPro ? MAX_PRO_FILES : MAX_FREE_FILES
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    // Show upgrade modal for free users trying to upload multiple files
-    if (!isPro && !isUltimate && acceptedFiles.length > 1) {
-      toast((t) => (
-        <div className="flex items-stretch overflow-hidden bg-white rounded-2xl shadow-2xl">
-          {/* Left color band */}
-          <div className="w-2 bg-gradient-to-b from-orange-400 to-red-500"></div>
-          
-          {/* Content */}
-          <div className="flex-1 p-6">
-            <div className="flex items-center gap-6">
-              {/* Icon */}
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 p-0.5">
-                <div className="w-full h-full bg-white rounded-xl flex items-center justify-center">
-                  <svg 
-                    className="w-7 h-7 text-orange-500" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Text Content */}
-              <div className="flex-1">
-                <h3 className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                  Speed Up Your Workflow
-                </h3>
-                <p className="text-gray-600 mt-1">
-                  Process multiple files instantly with Pro
-                </p>
-              </div>
-
-              {/* Button */}
-              <Link 
-                to="/pricing"
-                className="group relative flex-shrink-0 px-5 py-2.5 bg-gradient-to-r from-orange-400 to-red-500 text-white font-medium rounded-xl hover:from-orange-500 hover:to-red-600 transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-0.5 transform"
-                onClick={() => toast.dismiss(t.id)}
-              >
-                <span>View Plans</span>
-                <span className="absolute -top-2 -right-2 bg-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full group-hover:scale-110 transition-transform">
-                  50% OFF
-                </span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      ), {
-        duration: 8000,
-        style: {
-          background: 'transparent',
-          boxShadow: 'none',
-          padding: '0',
-          maxWidth: '600px',
-          width: '100%'
-        },
-      })
-      return
-    }
-
-    const { maxFiles, maxSize } = getTierLimits()
-    
-    // Check number of files for pro/ultimate users
+    // Check number of files based on subscription
     if (acceptedFiles.length > maxFiles) {
-      toast.error(`You can only convert ${maxFiles} file at a time`)
+      toast.error(
+        maxFiles === 1 
+          ? "Free users can only convert one file at a time. Upgrade to convert multiple files!"
+          : `You can convert up to ${maxFiles} files at a time with your current plan`
+      )
       return
     }
 
-    // Check total size
+    // Check total size based on subscription
     const totalSize = acceptedFiles.reduce((sum, file) => sum + file.size, 0)
     if (totalSize > maxSize) {
-      toast.error(`Total file size exceeds the limit (${maxSize / 1024 / 1024}MB)`)
+      toast.error(
+        `Total file size exceeds the limit (${maxSize / 1024 / 1024}MB) for your current plan. ${
+          !isPro && !isUltimate ? "Upgrade to process larger files!" : ""
+        }`
+      )
       return
     }
 
@@ -271,6 +253,12 @@ const ConvertFiles = () => {
         const formData = new FormData()
         formData.append('file', file)
 
+        console.log('Sending file to convert:', {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        })
+
         const response = await fetch('/api/convert', {
           method: 'POST',
           credentials: 'include',
@@ -281,12 +269,19 @@ const ConvertFiles = () => {
           body: formData,
         })
 
+        console.log('Response status:', response.status)
+        
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
+          console.error('Conversion error response:', errorData)
           throw new Error(errorData?.detail || `Failed to convert ${file.name}`)
         }
 
         const blob = await response.blob()
+        console.log('Received blob:', {
+          size: blob.size,
+          type: blob.type
+        })
         processedFiles.push({
           blob,
           filename: `Fast_Read_${file.name.replace('.pdf', '')}.pdf`
@@ -356,7 +351,7 @@ const ConvertFiles = () => {
             <img src="/icons/document.png" alt="Document" className="w-5 h-5" />
             <div>
               <span className="block">Convert files</span>
-              <span className="text-xs text-[#4475F2]/60">Up to {getMaxSize() / 1024 / 1024}MB</span>
+              <span className="text-xs text-[#4475F2]/60">Up to {maxSize / 1024 / 1024}MB</span>
             </div>
           </Link>
         </div>
@@ -462,7 +457,7 @@ const ConvertFiles = () => {
                     Supported format: PDF
                   </p>
                   <p className="text-sm text-gray-500">
-                    Maximum file size: {(getMaxSize() / 1024 / 1024).toFixed(0)}MB
+                    Maximum file size: {(maxSize / 1024 / 1024).toFixed(0)}MB
                   </p>
                 </div>
               </div>

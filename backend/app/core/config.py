@@ -35,7 +35,13 @@ class Settings(BaseSettings):
     STRIPE_ULTIMATE_YEARLY_PRICE_ID: str
     
     # Frontend URL for redirects
-    FRONTEND_URL: str = "https://readfast.app"
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Supabase Settings
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
+    SUPABASE_BUCKET_NAME: str = "conversions"
+    SUPABASE_FILE_EXPIRY: int = 300  # 5 minutes in seconds
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

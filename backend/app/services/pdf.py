@@ -113,6 +113,7 @@ class PDFService:
     async def convert_to_bionic(content: bytes, filename: str) -> bytes:
         """Convert a PDF file to bionic reading format."""
         logger.debug(f"Starting conversion of file: {filename}")
+        logger.debug(f"Content size: {len(content)} bytes")
         
         if not content.startswith(b'%PDF'):
             logger.error("Invalid PDF format - file does not start with %PDF")
@@ -127,14 +128,24 @@ class PDFService:
             output_path = Path(temp_dir) / "output.pdf"
             
             try:
+                logger.debug("Writing input file to temporary directory")
                 input_path.write_bytes(content)
+                
+                logger.debug("Opening input PDF with PyMuPDF")
                 doc = fitz.open(input_path)
+                logger.debug(f"Successfully opened PDF with {len(doc)} pages")
+                
+                logger.debug("Creating output PDF document")
                 output_doc = fitz.open()
                 
                 # Copy fonts from original document to new document
+                logger.debug("Copying fonts from original document")
+                font_count = 0
                 for xref in range(1, doc.xref_length()):
                     if doc.xref_is_font(xref):
                         output_doc._copy_resources(doc, xref)
+                        font_count += 1
+                logger.debug(f"Copied {font_count} fonts to output document")
                 
                 # Track elements across pages for consistency
                 processed_elements = []
@@ -229,12 +240,12 @@ class PDFService:
                                                     new_page.insert_text(
                                                         (current_x, origin[1]),
                                                         bold_part,
-                                                        fontname="helv-Bold",  # Always use built-in Helvetica Bold
+                                                        fontname="Helvetica-Bold",  # Standard Helvetica Bold
                                                         fontsize=fontsize,
                                                         color=color
                                                     )
                                                     logger.debug("Successfully rendered bold part")
-                                                    current_x += new_page.get_text_length(bold_part, fontname="helv-Bold", fontsize=fontsize)
+                                                    current_x += new_page.get_text_length(bold_part, fontname="Helvetica-Bold", fontsize=fontsize)
                                                 
                                                 # Insert regular part with built-in Helvetica font
                                                 if regular_part:
@@ -242,12 +253,12 @@ class PDFService:
                                                     new_page.insert_text(
                                                         (current_x, origin[1]),
                                                         regular_part,
-                                                        fontname="helv",  # Always use built-in Helvetica
+                                                        fontname="Helvetica",  # Standard Helvetica
                                                         fontsize=fontsize,
                                                         color=color
                                                     )
                                                     logger.debug("Successfully rendered regular part")
-                                                    current_x += new_page.get_text_length(regular_part, fontname="helv", fontsize=fontsize)
+                                                    current_x += new_page.get_text_length(regular_part, fontname="Helvetica", fontsize=fontsize)
                                                 
                                                 # Add word spacing
                                                 current_x += fontsize * 0.2
